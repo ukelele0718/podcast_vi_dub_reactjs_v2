@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,166 @@ ROOT = Path(__file__).resolve().parents[2]
 VALTEC_SRC = ROOT / "valtec-tts-src"
 
 MODEL_TRANSLATE = "facebook/nllb-200-distilled-600M"
+
+# YouTube URL patterns
+YOUTUBE_PATTERNS = [
+    r'(https?://)?(www\.)?youtube\.com/watch\?v=[\w-]+',
+    r'(https?://)?(www\.)?youtu\.be/[\w-]+',
+    r'(https?://)?(www\.)?youtube\.com/shorts/[\w-]+',
+]
+
+# Spotify URL patterns
+SPOTIFY_PATTERNS = [
+    r'(https?://)?(open\.)?spotify\.com/track/[\w]+',
+    r'(https?://)?(open\.)?spotify\.com/episode/[\w]+',
+    r'(https?://)?(open\.)?spotify\.com/album/[\w]+',
+    r'(https?://)?(open\.)?spotify\.com/playlist/[\w]+',
+]
+
+
+def is_youtube_url(text: str) -> bool:
+    """Check if text is a YouTube URL."""
+    if not text:
+        return False
+    for pattern in YOUTUBE_PATTERNS:
+        if re.match(pattern, text.strip()):
+            return True
+    return False
+
+
+def is_spotify_url(text: str) -> bool:
+    """Check if text is a Spotify URL."""
+    if not text:
+        return False
+    for pattern in SPOTIFY_PATTERNS:
+        if re.match(pattern, text.strip()):
+            return True
+    return False
+
+
+def download_spotify_audio(url: str, output_path: Path, job_dir: Path) -> Path:
+    """Download audio from Spotify using spotdl."""
+    _write_step(job_dir, "Đang tải audio từ Spotify...")
+    
+    output_dir = output_path.parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # spotdl command - use lowest bitrate to reduce blocking
+    cmd = [
+        "spotdl",
+        "--output", str(output_dir),
+        "--format", "mp3",
+        "--bitrate", "128k",  # Minimum quality to reduce detection
+        "--headless",  # No browser needed
+        url
+    ]
+    
+    p = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        cwd=str(output_dir)
+    )
+    
+    if p.returncode != 0:
+        # Check for common errors
+        output_lower = p.stdout.lower()
+        if "premium" in output_lower or "login" in output_lower or "auth" in output_lower:
+            raise RuntimeError(
+                "⚠️ Spotify yêu cầu Premium hoặc xác thực.\n\n"
+                "Giải pháp:\n"
+                "1. Tải thủ công: Dùng https://spotifydown.com để tải MP3\n"
+                "2. Sau đó upload file MP3 vào ứng dụng qua tab 'File Audio'\n\n"
+                f"Chi tiết: {p.stdout[:500]}"
+            )
+        raise RuntimeError(f"spotdl failed: {p.stdout}")
+    
+    # Find the downloaded file
+    mp3_files = list(output_dir.glob("*.mp3"))
+    if mp3_files:
+        # Rename to expected name
+        downloaded = mp3_files[0]
+        final_path = output_path.with_suffix(".mp3")
+        downloaded.rename(final_path)
+        return final_path
+    
+    raise RuntimeError("Could not find downloaded Spotify audio file")
+
+
+def download_youtube_audio(url: str, output_path: Path, job_dir: Path) -> Path:
+    """Download audio from YouTube using yt-dlp."""
+    _write_step(job_dir, "Đang tải audio từ YouTube...")
+    
+    # Check for cookies file
+    cookies_file = ROOT / "youtube_cookies.txt"
+    
+    # Set PATH to include deno
+    import os
+    env = os.environ.copy()
+    deno_path = Path.home() / ".deno" / "bin"
+    if deno_path.exists():
+        env["PATH"] = str(deno_path) + ":" + env.get("PATH", "")
+    
+    # yt-dlp command to extract audio
+    cmd = [
+        "yt-dlp",
+        "--js-runtimes", "deno",
+        "-x",  # Extract audio
+        "--audio-format", "mp3",
+        "--audio-quality", "0",  # Best quality
+        "-o", str(output_path.with_suffix(".%(ext)s")),
+        "--no-playlist",  # Only download single video
+    ]
+    
+    # Add cookies if file exists
+    if cookies_file.exists():
+        cmd.extend(["--cookies", str(cookies_file)])
+    
+    cmd.append(url)
+    
+    p = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env
+    )
+    
+    if p.returncode != 0:
+        # Check for bot detection errors
+        output_lower = p.stdout.lower()
+        if "bot" in output_lower or "sign in" in output_lower or "not available" in output_lower:
+            raise RuntimeError(
+                "⚠️ YouTube đang chặn tải xuống tự động.\n\n"
+                "Giải pháp:\n"
+                "1. Tải thủ công: Dùng https://cobalt.tools để tải MP3 từ YouTube\n"
+                "2. Sau đó upload file MP3 vào ứng dụng qua tab 'File Audio'\n\n"
+                "Hoặc liên hệ quản trị viên để cấu hình cookies YouTube.\n\n"
+                f"Chi tiết: {p.stdout[:500]}"
+            )
+        raise RuntimeError(f"yt-dlp failed: {p.stdout}")
+    
+    # Find the output file (yt-dlp may change extension)
+    output_mp3 = output_path.with_suffix(".mp3")
+    if output_mp3.exists():
+        return output_mp3
+    
+    # Try other extensions
+    for ext in [".m4a", ".webm", ".opus", ".wav"]:
+        alt_path = output_path.with_suffix(ext)
+        if alt_path.exists():
+            # Convert to mp3
+            final_mp3 = output_path.with_suffix(".mp3")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", str(alt_path), str(final_mp3)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+            )
+            alt_path.unlink()  # Remove original
+            return final_mp3
+    
+    raise RuntimeError("Could not find downloaded audio file")
 
 
 def _write_step(job_dir: Path, msg: str):

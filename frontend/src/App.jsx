@@ -4,7 +4,10 @@ import './App.css'
 const API = 'http://localhost:8000'
 
 function App() {
+  const [inputType, setInputType] = useState('file') // 'file', 'youtube', or 'spotify'
   const [file, setFile] = useState(null)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [spotifyUrl, setSpotifyUrl] = useState('')
   const [speaker, setSpeaker] = useState('SF')
   const [device, setDevice] = useState('cpu')
   const [jobId, setJobId] = useState(null)
@@ -45,13 +48,35 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!file) { setError('Vui lòng chọn file audio.'); return }
+    
+    // Validate input
+    if (inputType === 'file' && !file) { 
+      setError('Vui lòng chọn file audio.'); 
+      return 
+    }
+    if (inputType === 'youtube' && !youtubeUrl.trim()) { 
+      setError('Vui lòng nhập link YouTube.'); 
+      return 
+    }
+    if (inputType === 'spotify' && !spotifyUrl.trim()) { 
+      setError('Vui lòng nhập link Spotify.'); 
+      return 
+    }
+    
     setError('')
     setSubmitting(true)
     setJob(null)
 
     const fd = new FormData()
-    fd.append('file', file)
+    if (inputType === 'file' && file) {
+      fd.append('file', file)
+    }
+    if (inputType === 'youtube' && youtubeUrl.trim()) {
+      fd.append('youtube_url', youtubeUrl.trim())
+    }
+    if (inputType === 'spotify' && spotifyUrl.trim()) {
+      fd.append('spotify_url', spotifyUrl.trim())
+    }
     fd.append('speaker', speaker)
     fd.append('device', device)
 
@@ -60,7 +85,17 @@ function App() {
       if (!r.ok) { throw new Error(await r.text()) }
       const data = await r.json()
       setJobId(data.job_id)
-      setJob({ job_id: data.job_id, status: 'running', step: 'Đang khởi tạo...', files: [] })
+      const stepMap = {
+        'youtube': 'Đang tải từ YouTube...',
+        'spotify': 'Đang tải từ Spotify...',
+        'file': 'Đang khởi tạo...'
+      }
+      setJob({ 
+        job_id: data.job_id, 
+        status: 'running', 
+        step: stepMap[inputType] || 'Đang khởi tạo...', 
+        files: [] 
+      })
       pollJob(data.job_id)
     } catch (err) {
       setError(err.message || 'Lỗi kết nối server')
@@ -95,34 +130,93 @@ function App() {
         {/* Left panel: Upload + History */}
         <aside className="sidebar">
           <form onSubmit={handleSubmit} className="upload-form">
-            <h2>Tải lên Podcast</h2>
+            <h2>Nguồn Podcast</h2>
 
-            <div
-              className={`drop-zone ${file ? 'has-file' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); setFile(e.dataTransfer.files[0]) }}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                hidden
-                onChange={e => setFile(e.target.files[0])}
-              />
-              {file ? (
-                <div className="file-info">
-                  <span className="file-icon">🎵</span>
-                  <span className="file-name">{file.name}</span>
-                  <span className="file-size">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                </div>
-              ) : (
-                <div className="drop-placeholder">
-                  <span className="drop-icon">📁</span>
-                  <span>Kéo thả hoặc click để chọn file MP3/WAV</span>
-                </div>
-              )}
+            {/* Input type toggle */}
+            <div className="input-toggle">
+              <button
+                type="button"
+                className={`toggle-btn ${inputType === 'file' ? 'active' : ''}`}
+                onClick={() => setInputType('file')}
+              >
+                📁 File
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${inputType === 'youtube' ? 'active' : ''}`}
+                onClick={() => setInputType('youtube')}
+              >
+                🎬 YouTube
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${inputType === 'spotify' ? 'active' : ''}`}
+                onClick={() => setInputType('spotify')}
+              >
+                🎵 Spotify
+              </button>
             </div>
+
+            {/* File upload */}
+            {inputType === 'file' && (
+              <div
+                className={`drop-zone ${file ? 'has-file' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); setFile(e.dataTransfer.files[0]) }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  hidden
+                  onChange={e => setFile(e.target.files[0])}
+                />
+                {file ? (
+                  <div className="file-info">
+                    <span className="file-icon">🎵</span>
+                    <span className="file-name">{file.name}</span>
+                    <span className="file-size">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                  </div>
+                ) : (
+                  <div className="drop-placeholder">
+                    <span className="drop-icon">📁</span>
+                    <span>Kéo thả hoặc click để chọn file MP3/WAV</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* YouTube URL input */}
+            {inputType === 'youtube' && (
+              <div className="youtube-input">
+                <input
+                  type="text"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={e => setYoutubeUrl(e.target.value)}
+                  className="url-input"
+                />
+                <p className="hint">Hỗ trợ: youtube.com/watch?v=..., youtu.be/...</p>
+                <p className="hint warning">⚠️ Nếu lỗi, dùng <a href="https://cobalt.tools" target="_blank" rel="noreferrer">cobalt.tools</a> để tải MP3 rồi upload qua tab "File"</p>
+              </div>
+            )}
+
+            {/* Spotify URL input */}
+            {inputType === 'spotify' && (
+              <div className="spotify-input">
+                <input
+                  type="text"
+                  placeholder="https://open.spotify.com/track/... or .../episode/..."
+                  value={spotifyUrl}
+                  onChange={e => setSpotifyUrl(e.target.value)}
+                  className="url-input"
+                />
+                <p className="hint">Hỗ trợ: track, episode, album, playlist</p>
+                <p className="hint info">💡 Sử dụng chất lượng 128kbps để giảm chặn</p>
+                <p className="hint warning">⚠️ Nếu lỗi, dùng <a href="https://spotifydown.com" target="_blank" rel="noreferrer">spotifydown.com</a> để tải MP3 rồi upload qua tab "File"</p>
+              </div>
+            )}
 
             <div className="form-row">
               <label>
@@ -144,7 +238,7 @@ function App() {
               </label>
             </div>
 
-            <button type="submit" className="btn-primary" disabled={submitting || !file}>
+            <button type="submit" className="btn-primary" disabled={submitting || (inputType === 'file' ? !file : inputType === 'youtube' ? !youtubeUrl.trim() : !spotifyUrl.trim())}>
               {submitting ? '⏳ Đang gửi...' : '▶️ Bắt đầu chuyển đổi'}
             </button>
 
@@ -174,8 +268,8 @@ function App() {
           {!job ? (
             <div className="placeholder-content">
               <div className="placeholder-icon">🎧</div>
-              <p>Chọn file podcast tiếng Anh và bấm "Bắt đầu chuyển đổi"</p>
-              <p className="hint">Pipeline: ASR (Whisper) → Dịch (NLLB-200) → TTS (Valtec)</p>
+              <p>Chọn file podcast hoặc nhập link YouTube và bấm "Bắt đầu chuyển đổi"</p>
+              <p className="hint">Pipeline: YouTube/Audio → ASR (Whisper) → Dịch (NLLB-200) → TTS (Valtec)</p>
             </div>
           ) : (
             <div className="job-result">

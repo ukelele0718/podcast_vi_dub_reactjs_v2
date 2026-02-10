@@ -7,3 +7,5 @@ transformers
 sentencepiece
 soundfile
 huggingface_hub
+yt-dlp
+spotdl

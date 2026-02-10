@@ -84,6 +84,96 @@
 .file-name { font-weight: 600; word-break: break-all; }
 .file-size { color: #78909c; font-size: 0.85rem; }
 
+/* Input type toggle */
+.input-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.toggle-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border: 2px solid #cfd8dc;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #546e7a;
+}
+.toggle-btn:hover {
+  border-color: #2d6a9f;
+  color: #2d6a9f;
+}
+.toggle-btn.active {
+  border-color: #2d6a9f;
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+/* YouTube URL input */
+.youtube-input {
+  margin-bottom: 1rem;
+}
+.url-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.url-input:focus {
+  outline: none;
+  border-color: #2d6a9f;
+}
+.youtube-input .hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #78909c;
+}
+.youtube-input .hint.warning {
+  color: #e65100;
+  background: #fff3e0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+.youtube-input .hint.warning a {
+  color: #1565c0;
+  font-weight: 600;
+}
+
+/* Spotify input */
+.spotify-input {
+  margin-bottom: 1rem;
+}
+.spotify-input .hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #78909c;
+}
+.spotify-input .hint.info {
+  color: #1b5e20;
+  background: #e8f5e9;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+.spotify-input .hint.warning {
+  color: #e65100;
+  background: #fff3e0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+.spotify-input .hint.warning a {
+  color: #1565c0;
+  font-weight: 600;
+}
+
 /* Form controls */
 .form-row {
   display: flex;
