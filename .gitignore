@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Storage - keep structure but ignore job data
+storage/jobs/*/inputs/*
+storage/jobs/*/outputs/*
+storage/jobs/*/logs/*
+!storage/jobs/.gitkeep
+
+# HuggingFace
+huggingface_space/
+
+# Model files
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# Audio files
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Temp
+*.tmp
+*.temp
+.cache/

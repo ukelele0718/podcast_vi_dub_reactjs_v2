@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+torch
+faster-whisper
+transformers
+sentencepiece
+soundfile
+huggingface_hub
